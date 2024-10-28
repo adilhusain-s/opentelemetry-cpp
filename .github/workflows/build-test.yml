@@ -1,0 +1,79 @@
+name: Build and Test opentelemetry-cpp
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-and-test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, ubuntu-22.04-ppc64le]
+
+    env:
+      PACKAGE_NAME: opentelemetry-cpp
+      PACKAGE_VERSION: v1.8.0
+      PACKAGE_URL: https://github.com/open-telemetry/opentelemetry-cpp
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git cmake g++ libcurl4-openssl-dev
+
+      - name: Install GTest
+        run: |
+          git clone https://github.com/google/googletest.git -b release-1.10.0 $HOME/googletest
+          mkdir -p $HOME/googletest/build
+          cd $HOME/googletest/build
+          cmake ..
+          make
+          sudo make install
+
+      - name: Install Benchmark
+        run: |
+          git clone https://github.com/google/benchmark.git $HOME/benchmark
+          mkdir -p $HOME/benchmark/build
+          cd $HOME/benchmark/build
+          cmake -DBENCHMARK_DOWNLOAD_DEPENDENCIES=on -DCMAKE_BUILD_TYPE=Release ..
+          cmake --build . --config Release
+          sudo cmake --install . --config Release
+
+      - name: Clone Opentelemetry-cpp repository
+        run: |
+          mkdir -p $HOME/source && cd $HOME/source
+          git clone --recursive -b $PACKAGE_VERSION $PACKAGE_URL
+          cd $PACKAGE_NAME
+
+      - name: Build Opentelemetry-cpp
+        run: |
+          mkdir -p build && cd build
+          cmake ..
+          cmake --build . --target all
+
+      - name: Install Opentelemetry-cpp
+        run: |
+          sudo mkdir -p /opt/$PACKAGE_NAME/
+          sudo cmake --install . --config Debug --prefix /opt/$PACKAGE_NAME/
+
+      - name: Run CTest
+        run: |
+          cd $HOME/source/$PACKAGE_NAME/build
+          ctest --output-on-failure
+          
+      - name: Copy binaries
+        run: |
+          cp -R /opt/$PACKAGE_NAME/ $HOME/source/
+          
+      - name: Cleanup
+        run: |
+          rm -rf $HOME/source/$PACKAGE_NAME/
+
