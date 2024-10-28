@@ -13,7 +13,10 @@ on:
 jobs:
   cmake_test:
     name: CMake test (without otlp-exporter)
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, ubuntu-22.04-ppc64le]
 
     steps:
       - name: Checkout opentelemetry-cpp repository
